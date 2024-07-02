@@ -3,14 +3,18 @@ import Store from './utils/Store';
 import RateLimiter from './utils/RateLimiter';
 import { Config, RateLimitData, SessionData } from './Types';
 import Time from './utils/Time';
+import EventEmitter = require('events');
+import TypedEventEmitter from 'typed-emitter';
 
-export default class Client {
+export default class Client extends (EventEmitter as new () => TypedEventEmitter<ClientEvents>) {
   public readonly axios: Axios;
 
   public readonly reads = new RateLimiter(10);
   public readonly writes = new RateLimiter(16);
 
   constructor(config: Config) {
+    super();
+
     // @ts-ignore
     Store.config = config;
 
@@ -20,6 +24,9 @@ export default class Client {
         Authorization: 'Bearer ' + Store.getAPIKey(),
       },
     });
+
+    this.reads.on('info', i => this.emit('ratelimit', 'READ', i));
+    this.writes.on('info', i => this.emit('ratelimit', 'WRITE', i));
   }
 
   private async request<D extends AxiosResponse<any, any>>(type: 'GET', url: string): Promise<D>;
@@ -216,3 +223,7 @@ export default class Client {
     else return { ok: false, error: res.error };
   }
 }
+
+export type ClientEvents = {
+  ratelimit(type: 'READ' | 'WRITE', info: RateLimitData): void;
+};

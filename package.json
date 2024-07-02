@@ -12,6 +12,7 @@
   "description": "",
   "devDependencies": {
     "@types/node": "^20.14.9",
+    "typed-emitter": "^2.1.0",
     "typescript": "^5.5.3"
   },
   "dependencies": {

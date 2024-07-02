@@ -1,13 +1,17 @@
+import EventEmitter = require('events');
 import { RateLimitData } from '../Types';
+import TypedEventEmitter from 'typed-emitter';
 
-export default class RateLimiter {
+export default class RateLimiter extends (EventEmitter as new () => TypedEventEmitter<RateLimiterEvents>) {
   private readonly list: (() => RateLimitData | Promise<RateLimitData>)[] = [];
 
   public max: number;
   public left: number;
   public reset: NodeJS.Timeout;
 
-  constructor(max: number) {
+  constructor(max: number = 1) {
+    super();
+
     this.max = max;
     this.left = max;
 
@@ -18,8 +22,6 @@ export default class RateLimiter {
           this.left -= 1;
 
           if (data && typeof data === 'object' && !isNaN(data.max) && !isNaN(data.left) && !isNaN(data.resetAt)) {
-            console.log(data);
-
             this.max = data.max;
             this.left = data.left;
             if (this.reset) clearTimeout(this.reset);
@@ -38,3 +40,7 @@ export default class RateLimiter {
     this.list.push(func);
   }
 }
+
+export type RateLimiterEvents = {
+  info(info: RateLimitData): void;
+};
