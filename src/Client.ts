@@ -1,7 +1,8 @@
 import axios, { Axios, AxiosResponse } from 'axios';
 import Store from './utils/Store';
 import RateLimiter from './utils/RateLimiter';
-import { Config, RateLimitData } from './Types';
+import { Config, RateLimitData, SessionData } from './Types';
+import Time from './utils/Time';
 
 export default class Client {
   public readonly axios: Axios;
@@ -66,12 +67,152 @@ export default class Client {
   }
 
   /** @deprecated */
-  public async getRemainingSessionTime(slackID: string = Store.getID()): Promise<{ active: false } | { active: true; remainingMS: number }> {
+  public async getRemainingSessionTime(slackID: string = Store.getID()): Promise<{ ok: false; error: string } | { ok: true; active: false } | { ok: true; active: true; remainingMS: number }> {
     const res = await this.queue('GET', '/api/clock/' + slackID);
 
-    const ms = parseInt(res.data);
+    if (!isNaN(res.data)) {
+      const ms = parseInt(res.data);
 
-    if (ms === -1) return { active: false };
-    else return { active: true, remainingMS: ms };
+      if (ms === -1) return { ok: true, active: false };
+      else return { ok: true, active: true, remainingMS: ms };
+    } else return { ok: false, error: res.data.error };
+  }
+
+  public async getSessionData(): Promise<{ ok: false; error: string } | { ok: true; active: false } | ({ ok: true; active: true; userID: string; messageTs: string } & SessionData)> {
+    const res = (await this.queue('GET', '/api/session/' + Store.getID())).data;
+
+    if (res.ok)
+      return {
+        ok: true,
+        active: true,
+        userID: res.data.id,
+        time: {
+          totalMins: res.data.time,
+          elapsedMins: res.data.elapsed,
+          remainingMins: res.data.remaining,
+          createdAt: new Date(res.data.createdAt),
+          endAt: new Date(res.data.endTime),
+        },
+        paused: res.data.paused,
+        completed: res.data.completed,
+        goal: res.data.goal === 'No Goal' ? null : res.data.goal,
+        work: res.data.work,
+        messageTs: res.data.messageTs,
+      };
+    else {
+      if (res.error === 'No active session found') return { ok: true, active: false };
+      else return { ok: false, error: res.error };
+    }
+  }
+
+  public async getUserStats(): Promise<{ ok: false; error: string } | { ok: true; sessions: number; time: Time }> {
+    const res = (await this.queue('GET', '/api/stats/' + Store.getID())).data;
+
+    if (res.ok)
+      return {
+        ok: true,
+        sessions: res.data.sessions,
+        time: new Time(res.data.sessions * 60 * 60 * 1000),
+      };
+    else return { ok: false, error: res.error };
+  }
+
+  public async getUserGoals(): Promise<{ ok: false; error: string } | { ok: true; goals: { name: string; time: Time }[] }> {
+    const res = (await this.queue('GET', '/api/goals/' + Store.getID())).data;
+
+    if (res.ok)
+      return {
+        ok: true,
+        goals: res.data.map(g => ({
+          name: g.name,
+          time: new Time(g.minutes * 60 * 1000),
+        })),
+      };
+    else return { ok: false, error: res.error };
+  }
+
+  public async getSessionHistory(): Promise<
+    | { ok: false; error: string }
+    | {
+        ok: true;
+        sessions: SessionData[];
+      }
+  > {
+    const res = (await this.queue('GET', '/api/history/' + Store.getID())).data;
+
+    if (res.ok)
+      return {
+        ok: true,
+        sessions: res.data.map(s => ({
+          time: {
+            totalMins: s.time,
+            elapsedMins: s.elapsed,
+            remainingMins: s.time - s.elapsed,
+            createdAt: new Date(s.createdAt),
+            endAt: new Date(new Date(s.createdAt).getTime() + s.elapsed * 60 * 1000),
+          },
+          paused: s.paused ?? false,
+          completed: s.ended,
+          goal: s.goal === 'No Goal' ? null : s.goal,
+          work: s.work,
+        })),
+      };
+    else return { ok: false, error: res.error };
+  }
+
+  public async start(work: string): Promise<{ ok: false; error: string } | { ok: true; created: false } | { ok: true; created: true; session: { id: string; userID: string; createdAt: Date } }> {
+    if (typeof work !== 'string' || !work.length) throw new Error('Invalid Work! Work must but a string of at least 1 character!');
+
+    const res = (await this.queue('POST', '/api/start/' + Store.getID(), { work })).data;
+
+    if (res.ok)
+      return {
+        ok: true,
+        created: true,
+        session: {
+          id: res.data.id,
+          userID: res.data.slackId,
+          createdAt: new Date(res.data.createdAt),
+        },
+      };
+    else {
+      if (res.error === 'You already have an active session') return { ok: true, created: false };
+      else return { ok: false, error: res.error };
+    }
+  }
+
+  public async cancel(): Promise<{ ok: false; error: string } | { ok: true; cancelled: false } | { ok: true; cancelled: true; session: { id: string; userID: string; createdAt: Date } }> {
+    const res = (await this.queue('POST', '/api/cancel/' + Store.getID())).data;
+
+    if (res.ok)
+      return {
+        ok: true,
+        cancelled: true,
+        session: {
+          id: res.data.id,
+          userID: res.data.slackId,
+          createdAt: new Date(res.data.createdAt),
+        },
+      };
+    else {
+      if (res.error === 'Invalid user or no active session found') return { ok: true, cancelled: false };
+      else return { ok: false, error: res.error };
+    }
+  }
+
+  public async togglePaused(): Promise<{ ok: false; error: string } | { ok: true; session: { id: string; userID: string; createdAt: Date; paused: boolean } }> {
+    const res = (await this.queue('POST', '/api/pause/' + Store.getID())).data;
+
+    if (res.ok)
+      return {
+        ok: true,
+        session: {
+          id: res.data.id,
+          userID: res.data.slackId,
+          createdAt: new Date(res.data.createdAt),
+          paused: res.data.paused,
+        },
+      };
+    else return { ok: false, error: res.error };
   }
 }

@@ -12,3 +12,11 @@ export interface Config {
   /** Slack User Token */
   token: string;
 }
+
+export interface SessionData {
+  time: { totalMins: number; elapsedMins: number; remainingMins: number; createdAt: Date; endAt: Date };
+  paused: boolean;
+  completed: boolean;
+  goal: string | null;
+  work: string;
+}
