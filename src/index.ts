@@ -1,11 +1,10 @@
 import Client from './Client';
+import Constants from './utils/Constants';
+import RateLimiter from './utils/RateLimiter';
+import Store from './utils/Store';
+import Time from './utils/Time';
 
 export default Client;
-export { Client };
+export { Client, Constants, RateLimiter, Store, Time };
 
-export * from './utils/Constants';
-export * from './utils/RateLimiter';
-export * from './utils/Store';
-export * from './utils/Constants';
-export * from './utils/Time';
 export * from './Types';
