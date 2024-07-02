@@ -78,13 +78,13 @@ export default class Client {
     } else return { ok: false, error: res.data.error };
   }
 
-  public async getSessionData(): Promise<{ ok: false; error: string } | { ok: true; active: false } | ({ ok: true; active: true; userID: string; messageTs: string } & SessionData)> {
+  public async getSessionData(): Promise<{ ok: false; error: string } | { ok: true; active: false } | ({ ok: true; active: boolean; userID: string; messageTs: string } & SessionData)> {
     const res = (await this.queue('GET', '/api/session/' + Store.getID())).data;
 
     if (res.ok)
       return {
         ok: true,
-        active: true,
+        active: res.data.remaining > 0,
         userID: res.data.id,
         time: {
           totalMins: res.data.time,

@@ -1,5 +1,3 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
 import { Config } from '../Types';
 
 export default class Store {
@@ -11,9 +9,5 @@ export default class Store {
 
   public static getAPIKey(): string {
     return Store.config.APIKey;
-  }
-
-  public static getSlackToken(): string {
-    return Store.config.token;
   }
 }

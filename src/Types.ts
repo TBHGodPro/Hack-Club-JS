@@ -9,8 +9,6 @@ export interface Config {
   slackID: string;
   /** Hack Club API Key */
   APIKey: string;
-  /** Slack User Token */
-  token: string;
 }
 
 export interface SessionData {
