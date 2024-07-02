@@ -22,6 +22,8 @@ export default class RateLimiter extends (EventEmitter as new () => TypedEventEm
           this.left -= 1;
 
           if (data && typeof data === 'object' && !isNaN(data.max) && !isNaN(data.left) && !isNaN(data.resetAt)) {
+            this.emit('info', data);
+
             this.max = data.max;
             this.left = data.left;
             if (this.reset) clearTimeout(this.reset);
