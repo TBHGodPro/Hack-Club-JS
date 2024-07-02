@@ -9,7 +9,7 @@
   },
   "author": "TBHGodPro",
   "license": "ISC",
-  "description": "",
+  "description": "JS/TS Library to access the Hack Club Arcade API",
   "devDependencies": {
     "@types/node": "^20.14.9",
     "typed-emitter": "^2.1.0",
@@ -17,5 +17,9 @@
   },
   "dependencies": {
     "axios": "^1.7.2"
-  }
+  },
+  "files": [
+    "dist",
+    "tsconfig.json"
+  ]
 }
