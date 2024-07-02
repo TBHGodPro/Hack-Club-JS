@@ -91,7 +91,7 @@ export default class Client extends (EventEmitter as new () => TypedEventEmitter
     if (res.ok)
       return {
         ok: true,
-        active: res.data.remaining > 0,
+        active: res.data.remaining > 0 && !res.data.completed,
         userID: res.data.id,
         time: {
           totalMins: res.data.time,
