@@ -85,12 +85,13 @@ export default class Client extends (EventEmitter as new () => TypedEventEmitter
     } else return { ok: false, error: res.data.error };
   }
 
-  public async getSessionData(): Promise<{ ok: false; error: string } | { ok: true; active: false } | ({ ok: true; active: boolean; userID: string; messageTs: string } & SessionData)> {
+  public async getSessionData(): Promise<{ ok: false; error: string } | { ok: true; found: false; active: false } | ({ ok: true; found: true; active: boolean; userID: string; messageTs: string } & SessionData)> {
     const res = (await this.queue('GET', '/api/session/' + Store.getID())).data;
 
     if (res.ok)
       return {
         ok: true,
+        found: true,
         active: res.data.remaining > 0 && !res.data.completed,
         userID: res.data.id,
         time: {
@@ -107,7 +108,7 @@ export default class Client extends (EventEmitter as new () => TypedEventEmitter
         messageTs: res.data.messageTs,
       };
     else {
-      if (res.error === 'No active session found') return { ok: true, active: false };
+      if (res.error === 'No active session found') return { ok: true, found: false, active: false };
       else return { ok: false, error: res.error };
     }
   }
