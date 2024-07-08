@@ -18,3 +18,5 @@ export interface SessionData {
   goal: string | null;
   work: string;
 }
+
+export type ResData<T> = { ok: false; error: string } | ({ ok: true } & T);

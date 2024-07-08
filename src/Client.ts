@@ -1,7 +1,7 @@
 import axios, { Axios, AxiosResponse } from 'axios';
 import Store from './utils/Store';
 import RateLimiter from './utils/RateLimiter';
-import { Config, RateLimitData, SessionData } from './Types';
+import { Config, RateLimitData, ResData, SessionData } from './Types';
 import Time from './utils/Time';
 import EventEmitter = require('events');
 import TypedEventEmitter from 'typed-emitter';
@@ -74,7 +74,7 @@ export default class Client extends (EventEmitter as new () => TypedEventEmitter
   }
 
   /** @deprecated */
-  public async getRemainingSessionTime(slackID: string = Store.getID()): Promise<{ ok: false; error: string } | { ok: true; active: false } | { ok: true; active: true; remainingMS: number }> {
+  public async getRemainingSessionTime(slackID: string = Store.getID()): Promise<ResData<{ active: false } | { active: true; remainingMS: number }>> {
     const res = await this.queue('GET', '/api/clock/' + slackID);
 
     if (!isNaN(res.data)) {
@@ -85,7 +85,7 @@ export default class Client extends (EventEmitter as new () => TypedEventEmitter
     } else return { ok: false, error: res.data.error };
   }
 
-  public async getSessionData(): Promise<{ ok: false; error: string } | { ok: true; found: false; active: false } | ({ ok: true; found: true; active: boolean; userID: string; messageTs: string } & SessionData)> {
+  public async getSessionData(): Promise<ResData<{ found: false; active: false } | ({ found: true; active: boolean; userID: string; messageTs: string } & SessionData)>> {
     const res = (await this.queue('GET', '/api/session/' + Store.getID())).data;
 
     if (res.ok)
@@ -113,7 +113,7 @@ export default class Client extends (EventEmitter as new () => TypedEventEmitter
     }
   }
 
-  public async getUserStats(): Promise<{ ok: false; error: string } | { ok: true; sessions: number; time: Time }> {
+  public async getUserStats(): Promise<ResData<{ sessions: number; time: Time }>> {
     const res = (await this.queue('GET', '/api/stats/' + Store.getID())).data;
 
     if (res.ok)
@@ -125,7 +125,7 @@ export default class Client extends (EventEmitter as new () => TypedEventEmitter
     else return { ok: false, error: res.error };
   }
 
-  public async getUserGoals(): Promise<{ ok: false; error: string } | { ok: true; goals: { name: string; time: Time }[] }> {
+  public async getUserGoals(): Promise<ResData<{ goals: { name: string; time: Time }[] }>> {
     const res = (await this.queue('GET', '/api/goals/' + Store.getID())).data;
 
     if (res.ok)
@@ -139,13 +139,7 @@ export default class Client extends (EventEmitter as new () => TypedEventEmitter
     else return { ok: false, error: res.error };
   }
 
-  public async getSessionHistory(): Promise<
-    | { ok: false; error: string }
-    | {
-        ok: true;
-        sessions: SessionData[];
-      }
-  > {
+  public async getSessionHistory(): Promise<ResData<{ sessions: SessionData[] }>> {
     const res = (await this.queue('GET', '/api/history/' + Store.getID())).data;
 
     if (res.ok)
@@ -168,7 +162,7 @@ export default class Client extends (EventEmitter as new () => TypedEventEmitter
     else return { ok: false, error: res.error };
   }
 
-  public async start(work: string): Promise<{ ok: false; error: string } | { ok: true; created: false } | { ok: true; created: true; session: { id: string; userID: string; createdAt: Date } }> {
+  public async start(work: string): Promise<ResData<{ created: false } | { created: true; session: { id: string; userID: string; createdAt: Date } }>> {
     if (typeof work !== 'string' || !work.length) throw new Error('Invalid Work! Work must but a string of at least 1 character!');
 
     const res = (await this.queue('POST', '/api/start/' + Store.getID(), { work })).data;
@@ -189,7 +183,7 @@ export default class Client extends (EventEmitter as new () => TypedEventEmitter
     }
   }
 
-  public async cancel(): Promise<{ ok: false; error: string } | { ok: true; cancelled: false } | { ok: true; cancelled: true; session: { id: string; userID: string; createdAt: Date } }> {
+  public async cancel(): Promise<ResData<{ cancelled: false } | { cancelled: true; session: { id: string; userID: string; createdAt: Date } }>> {
     const res = (await this.queue('POST', '/api/cancel/' + Store.getID())).data;
 
     if (res.ok)
@@ -208,12 +202,13 @@ export default class Client extends (EventEmitter as new () => TypedEventEmitter
     }
   }
 
-  public async togglePaused(): Promise<{ ok: false; error: string } | { ok: true; session: { id: string; userID: string; createdAt: Date; paused: boolean } }> {
+  public async togglePaused(): Promise<ResData<{ toggled: false } | { toggled: true; session: { id: string; userID: string; createdAt: Date; paused: boolean } }>> {
     const res = (await this.queue('POST', '/api/pause/' + Store.getID())).data;
 
     if (res.ok)
       return {
         ok: true,
+        toggled: true,
         session: {
           id: res.data.id,
           userID: res.data.slackId,
@@ -221,7 +216,10 @@ export default class Client extends (EventEmitter as new () => TypedEventEmitter
           paused: res.data.paused,
         },
       };
-    else return { ok: false, error: res.error };
+    else {
+      if (res.error === 'Invalid user or no active session found') return { ok: true, toggled: false };
+      else return { ok: false, error: res.error };
+    }
   }
 }
 
